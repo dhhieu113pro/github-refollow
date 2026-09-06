@@ -15,10 +15,15 @@ public interface IRefollowRunStateStore
     Task SaveAsync(RefollowLastRun state, CancellationToken cancellationToken);
 }
 
+public interface IRefollowCoordinator
+{
+    Task<RefollowRunResult> RunAsync(CancellationToken cancellationToken);
+}
+
 public sealed class RefollowCoordinator(
     IRefollowRunner runner,
     IRefollowRunStateStore stateStore,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider) : IRefollowCoordinator
 {
     public async Task<RefollowRunResult> RunAsync(CancellationToken cancellationToken)
     {
