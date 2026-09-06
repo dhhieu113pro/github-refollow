@@ -62,8 +62,9 @@ public sealed class RefollowService : IRefollowRunner
 
         var delay = TimeSpan.FromSeconds(Math.Max(0, options.DelaySeconds));
 
-        foreach (var login in frozen)
+        for (var index = 0; index < frozen.Length; index++)
         {
+            var login = frozen[index];
             await client.UnfollowAsync(login, cancellationToken);
 
             if (delay > TimeSpan.Zero)
@@ -72,6 +73,9 @@ public sealed class RefollowService : IRefollowRunner
             }
 
             await client.FollowAsync(login, cancellationToken);
+
+            var remaining = frozen[(index + 1)..];
+            await snapshotStore.SavePendingAsync(remaining, CancellationToken.None);
 
             if (delay > TimeSpan.Zero)
             {
