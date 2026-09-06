@@ -8,7 +8,7 @@ namespace GitHubRefollow.Tests.Refollowing;
 public sealed class RefollowServiceTests
 {
     [Fact]
-    public async Task RunAsync_WhenDryRun_SnapshotsFollowingWithoutMutatingGitHub()
+    public async Task RunAsync_WhenDryRun_VerifiesIdentityThenSnapshotsFollowingWithoutMutatingGitHub()
     {
         var events = new List<string>();
         var client = new FakeFollowingClient(["alice", "bob"], events);
@@ -18,12 +18,15 @@ public sealed class RefollowServiceTests
         await service.RunAsync(default);
 
         Assert.Equal(
-            ["snapshot:alice,bob"],
+            [
+                "authenticated:quinn",
+                "snapshot:alice,bob"
+            ],
             events);
     }
 
     [Fact]
-    public async Task RunAsync_WhenEnabled_RefollowsFrozenSnapshotInOrder()
+    public async Task RunAsync_WhenEnabled_VerifiesIdentityThenRefollowsFrozenSnapshotInOrder()
     {
         var events = new List<string>();
         var client = new FakeFollowingClient(["alice", "bob"], events);
@@ -34,6 +37,7 @@ public sealed class RefollowServiceTests
 
         Assert.Equal(
             [
+                "authenticated:quinn",
                 "snapshot:alice,bob",
                 "unfollow:alice",
                 "follow:alice",
@@ -61,8 +65,11 @@ public sealed class RefollowServiceTests
         IReadOnlyList<string> following,
         List<string> events) : IGitHubFollowingClient
     {
-        public Task<string> GetAuthenticatedLoginAsync(CancellationToken cancellationToken) =>
-            Task.FromResult("quinn");
+        public Task<string> GetAuthenticatedLoginAsync(CancellationToken cancellationToken)
+        {
+            events.Add("authenticated:quinn");
+            return Task.FromResult("quinn");
+        }
 
         public Task<IReadOnlyList<string>> GetFollowingAsync(CancellationToken cancellationToken) =>
             Task.FromResult(following);
