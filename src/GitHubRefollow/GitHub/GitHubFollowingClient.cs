@@ -6,6 +6,17 @@ using Microsoft.Extensions.Options;
 
 namespace GitHubRefollow.GitHub;
 
+public interface IGitHubFollowingClient
+{
+    Task<string> GetAuthenticatedLoginAsync(CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<string>> GetFollowingAsync(CancellationToken cancellationToken);
+
+    Task UnfollowAsync(string login, CancellationToken cancellationToken);
+
+    Task FollowAsync(string login, CancellationToken cancellationToken);
+}
+
 public enum GitHubFailureKind
 {
     Authentication,
@@ -25,7 +36,7 @@ public sealed class GitHubApiException(
     public HttpStatusCode StatusCode { get; } = statusCode;
 }
 
-public sealed class GitHubFollowingClient
+public sealed class GitHubFollowingClient : IGitHubFollowingClient
 {
     private readonly HttpClient httpClient;
 
