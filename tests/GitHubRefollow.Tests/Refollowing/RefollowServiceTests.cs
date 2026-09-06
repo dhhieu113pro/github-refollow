@@ -97,6 +97,39 @@ public sealed class RefollowServiceTests
     }
 
     [Fact]
+    public async Task RunAsync_WhenLaterFollowFails_RemovesCompletedUsersFromRecoveryJournal()
+    {
+        var dataPath = Path.Combine(
+            Path.GetTempPath(),
+            $"github-refollow-recovery-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dataPath);
+
+        try
+        {
+            var events = new List<string>();
+            var client = new FakeFollowingClient(["alice", "rua-den"], events, failFollow: "rua-den");
+            var options = Options.Create(new RefollowOptions
+            {
+                DataPath = dataPath,
+                DryRun = false,
+                DelaySeconds = 0
+            });
+            var store = new JsonRefollowSnapshotStore(options);
+            var service = new RefollowService(client, store, options);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.RunAsync(default));
+
+            var pending = JsonSerializer.Deserialize<string[]>(
+                await File.ReadAllTextAsync(Path.Combine(dataPath, "pending.json")));
+            Assert.Equal(["rua-den"], pending);
+        }
+        finally
+        {
+            Directory.Delete(dataPath, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task RunAsync_WhenEnabled_VerifiesIdentityThenRefollowsFrozenSnapshotInOrder()
     {
         var events = new List<string>();
