@@ -9,6 +9,28 @@ public sealed class JsonRefollowSnapshotStore(IOptions<RefollowOptions> options)
 {
     private readonly string dataPath = options.Value.DataPath;
 
+    public async Task<IReadOnlyList<string>> LoadPendingAsync(
+        CancellationToken cancellationToken)
+    {
+        var pendingPath = Path.Combine(dataPath, "pending.json");
+        if (!File.Exists(pendingPath))
+        {
+            return [];
+        }
+
+        await using var stream = new FileStream(
+            pendingPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 4096,
+            useAsync: true);
+
+        return await JsonSerializer.DeserializeAsync<string[]>(
+            stream,
+            cancellationToken: cancellationToken) ?? [];
+    }
+
     public async Task SaveAsync(
         IReadOnlyList<string> following,
         CancellationToken cancellationToken)
