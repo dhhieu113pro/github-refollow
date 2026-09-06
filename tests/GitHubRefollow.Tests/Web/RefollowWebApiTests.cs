@@ -25,28 +25,38 @@ public sealed class RefollowWebApiTests
     }
 
     [Fact]
-    public async Task RunNow_WithoutApiKey_ReturnsUnauthorized()
+    public async Task Root_ExplainsThatRefollowTargetsFollowingNotFollowers()
+    {
+        await using var factory = CreateFactory(new FakeCoordinator());
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync("/");
+
+        Assert.Contains("accounts you follow", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Following", html, StringComparison.Ordinal);
+        Assert.Contains("not your Followers", html, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Root_DoesNotAskForApiKey()
+    {
+        await using var factory = CreateFactory(new FakeCoordinator());
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync("/");
+
+        Assert.DoesNotContain("API key", html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("X-Api-Key", html, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RunNow_WithoutApiKey_RunsCoordinator()
     {
         var coordinator = new FakeCoordinator();
         await using var factory = CreateFactory(coordinator);
         using var client = factory.CreateClient();
 
         var response = await client.PostAsync("/api/run", content: null);
-
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        Assert.Equal(0, coordinator.RunCount);
-    }
-
-    [Fact]
-    public async Task RunNow_WithApiKey_RunsCoordinator()
-    {
-        var coordinator = new FakeCoordinator();
-        await using var factory = CreateFactory(coordinator);
-        using var client = factory.CreateClient();
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/run");
-        request.Headers.Add("X-Api-Key", "test-api-key");
-
-        var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(1, coordinator.RunCount);
@@ -60,7 +70,6 @@ public sealed class RefollowWebApiTests
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["GitHubRefollow:Token"] = "test-token",
-                    ["GitHubRefollow:ApiKey"] = "test-api-key",
                     ["GitHubRefollow:DryRun"] = "true",
                     ["GitHubRefollow:DataPath"] = Path.Combine(
                         Path.GetTempPath(),
