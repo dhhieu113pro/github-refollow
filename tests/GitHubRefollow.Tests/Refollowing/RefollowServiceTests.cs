@@ -176,5 +176,10 @@ public sealed class RefollowServiceTests
             events.Add($"snapshot:{string.Join(',', following)}");
             return Task.CompletedTask;
         }
+
+        public Task SavePendingAsync(
+            IReadOnlyList<string> pending,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 }
