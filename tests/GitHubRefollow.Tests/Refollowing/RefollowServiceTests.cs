@@ -1,3 +1,4 @@
+using System.Text.Json;
 using GitHubRefollow.Configuration;
 using GitHubRefollow.GitHub;
 using GitHubRefollow.Refollowing;
@@ -62,6 +63,40 @@ public sealed class RefollowServiceTests
     }
 
     [Fact]
+    public async Task RunAsync_WhenFollowFails_PersistsCurrentUserForRecovery()
+    {
+        var dataPath = Path.Combine(
+            Path.GetTempPath(),
+            $"github-refollow-recovery-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dataPath);
+
+        try
+        {
+            var events = new List<string>();
+            var client = new FakeFollowingClient(["rua-den"], events, failFollow: "rua-den");
+            var options = Options.Create(new RefollowOptions
+            {
+                DataPath = dataPath,
+                DryRun = false,
+                DelaySeconds = 0
+            });
+            var store = new JsonRefollowSnapshotStore(options);
+            var service = new RefollowService(client, store, options);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.RunAsync(default));
+
+            var pendingPath = Path.Combine(dataPath, "pending.json");
+            Assert.True(File.Exists(pendingPath));
+            var pending = JsonSerializer.Deserialize<string[]>(await File.ReadAllTextAsync(pendingPath));
+            Assert.Equal(["rua-den"], pending);
+        }
+        finally
+        {
+            Directory.Delete(dataPath, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task RunAsync_WhenEnabled_VerifiesIdentityThenRefollowsFrozenSnapshotInOrder()
     {
         var events = new List<string>();
@@ -99,7 +134,8 @@ public sealed class RefollowServiceTests
 
     private sealed class FakeFollowingClient(
         IReadOnlyList<string> following,
-        List<string> events) : IGitHubFollowingClient
+        List<string> events,
+        string? failFollow = null) : IGitHubFollowingClient
     {
         public Task<string> GetAuthenticatedLoginAsync(CancellationToken cancellationToken)
         {
@@ -119,6 +155,11 @@ public sealed class RefollowServiceTests
         public Task FollowAsync(string login, CancellationToken cancellationToken)
         {
             events.Add($"follow:{login}");
+            if (string.Equals(login, failFollow, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Simulated follow failure.");
+            }
+
             return Task.CompletedTask;
         }
     }
