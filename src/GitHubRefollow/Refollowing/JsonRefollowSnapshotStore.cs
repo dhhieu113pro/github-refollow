@@ -31,15 +31,26 @@ public sealed class JsonRefollowSnapshotStore(IOptions<RefollowOptions> options)
             cancellationToken: cancellationToken) ?? [];
     }
 
-    public async Task SaveAsync(
+    public Task SaveAsync(
         IReadOnlyList<string> following,
+        CancellationToken cancellationToken) =>
+        WriteAsync("following.json", following, cancellationToken);
+
+    public Task SavePendingAsync(
+        IReadOnlyList<string> pending,
+        CancellationToken cancellationToken) =>
+        WriteAsync("pending.json", pending, cancellationToken);
+
+    private async Task WriteAsync(
+        string fileName,
+        IReadOnlyList<string> users,
         CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(dataPath);
 
-        var snapshotPath = Path.Combine(dataPath, "following.json");
+        var path = Path.Combine(dataPath, fileName);
         await using var stream = new FileStream(
-            snapshotPath,
+            path,
             FileMode.Create,
             FileAccess.Write,
             FileShare.None,
@@ -48,7 +59,7 @@ public sealed class JsonRefollowSnapshotStore(IOptions<RefollowOptions> options)
 
         await JsonSerializer.SerializeAsync(
             stream,
-            following,
+            users,
             cancellationToken: cancellationToken);
     }
 }
