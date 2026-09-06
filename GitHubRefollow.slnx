@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GitHubRefollow/GitHubRefollow.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GitHubRefollow.Tests/GitHubRefollow.Tests.csproj" />
+  </Folder>
+</Solution>

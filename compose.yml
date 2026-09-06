@@ -1,0 +1,18 @@
+services:
+  github-refollow:
+    image: ghcr.io/dhhieu113pro/github-refollow:latest
+    container_name: github-refollow
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8787:8080"
+    environment:
+      GITHUB_REFOLLOW_TOKEN: ${GITHUB_REFOLLOW_TOKEN}
+      GITHUB_REFOLLOW_API_KEY: ${GITHUB_REFOLLOW_API_KEY}
+      GITHUB_REFOLLOW_DRY_RUN: ${GITHUB_REFOLLOW_DRY_RUN:-true}
+      GITHUB_REFOLLOW_DELAY_SECONDS: ${GITHUB_REFOLLOW_DELAY_SECONDS:-2}
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+    volumes:
+      - github-refollow-data:/data
+
+volumes:
+  github-refollow-data:

@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore GitHubRefollow.slnx
+      - name: Build
+        id: build
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet build GitHubRefollow.slnx --configuration Release --no-restore 2>&1 | tee build.log
+      - name: Upload build log on failure
+        if: failure() && steps.build.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+      - run: dotnet test GitHubRefollow.slnx --configuration Release --no-build
+      - run: docker build --tag github-refollow:ci .

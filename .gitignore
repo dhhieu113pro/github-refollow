@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+.env
+.env.*
+!.env.example
+/data/
+*.user
+*.suo
+.vs/
