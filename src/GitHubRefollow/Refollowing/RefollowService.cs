@@ -11,6 +11,10 @@ public interface IRefollowSnapshotStore
     Task SaveAsync(
         IReadOnlyList<string> following,
         CancellationToken cancellationToken);
+
+    Task SavePendingAsync(
+        IReadOnlyList<string> pending,
+        CancellationToken cancellationToken);
 }
 
 public sealed record RefollowRunResult(int FollowingCount, bool DryRun);
@@ -53,6 +57,8 @@ public sealed class RefollowService : IRefollowRunner
         {
             return new RefollowRunResult(frozen.Length, DryRun: true);
         }
+
+        await snapshotStore.SavePendingAsync(frozen, cancellationToken);
 
         var delay = TimeSpan.FromSeconds(Math.Max(0, options.DelaySeconds));
 
