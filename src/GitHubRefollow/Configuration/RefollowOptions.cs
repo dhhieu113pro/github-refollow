@@ -6,8 +6,6 @@ public sealed class RefollowOptions
 
     public string Token { get; init; } = string.Empty;
 
-    public string ApiKey { get; init; } = string.Empty;
-
     public bool DryRun { get; init; } = true;
 
     public int DelaySeconds { get; init; } = 2;
