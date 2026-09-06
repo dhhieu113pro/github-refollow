@@ -32,3 +32,13 @@ jobs:
           path: build.log
       - run: dotnet test GitHubRefollow.slnx --configuration Release --no-build
       - run: docker build --tag github-refollow:ci .
+      - name: Verify container environment metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker image inspect --format '{{range .Config.Env}}{{println .}}{{end}}' github-refollow:ci > image-env.txt
+          grep -Fx 'GITHUB_REFOLLOW_TOKEN=' image-env.txt
+          grep -Fx 'GITHUB_REFOLLOW_API_KEY=' image-env.txt
+          grep -Fx 'GITHUB_REFOLLOW_DRY_RUN=true' image-env.txt
+          grep -Fx 'GITHUB_REFOLLOW_DELAY_SECONDS=2' image-env.txt
+          grep -Fx 'TZ=Asia/Ho_Chi_Minh' image-env.txt
