@@ -11,7 +11,14 @@ public interface IRefollowSnapshotStore
         CancellationToken cancellationToken);
 }
 
-public sealed class RefollowService
+public sealed record RefollowRunResult(int FollowingCount, bool DryRun);
+
+public interface IRefollowRunner
+{
+    Task<RefollowRunResult> RunAsync(CancellationToken cancellationToken);
+}
+
+public sealed class RefollowService : IRefollowRunner
 {
     private readonly IGitHubFollowingClient client;
     private readonly IRefollowSnapshotStore snapshotStore;
@@ -27,7 +34,7 @@ public sealed class RefollowService
         this.options = options.Value;
     }
 
-    public async Task RunAsync(CancellationToken cancellationToken)
+    public async Task<RefollowRunResult> RunAsync(CancellationToken cancellationToken)
     {
         var following = await client.GetFollowingAsync(cancellationToken);
         var frozen = following.ToArray();
@@ -36,7 +43,7 @@ public sealed class RefollowService
 
         if (options.DryRun)
         {
-            return;
+            return new RefollowRunResult(frozen.Length, DryRun: true);
         }
 
         var delay = TimeSpan.FromSeconds(Math.Max(0, options.DelaySeconds));
@@ -57,5 +64,7 @@ public sealed class RefollowService
                 await Task.Delay(delay, cancellationToken);
             }
         }
+
+        return new RefollowRunResult(frozen.Length, DryRun: false);
     }
 }
