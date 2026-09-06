@@ -39,6 +39,23 @@ public sealed class RefollowCoordinatorTests
         Assert.DoesNotContain("sensitive detail", store.Saved.Error);
     }
 
+    [Fact]
+    public async Task RunAsync_WhenAnotherRunIsActive_RejectsOverlap()
+    {
+        var runner = new BlockingRunner();
+        var store = new FakeRunStateStore();
+        var coordinator = new RefollowCoordinator(runner, store, TimeProvider.System);
+
+        var firstRun = coordinator.RunAsync(default);
+        await runner.Started;
+
+        await Assert.ThrowsAsync<RefollowAlreadyRunningException>(
+            () => coordinator.RunAsync(default));
+
+        runner.Complete(new RefollowRunResult(1, DryRun: true));
+        await firstRun;
+    }
+
     private sealed class FakeRunner : IRefollowRunner
     {
         private readonly RefollowRunResult? result;
@@ -57,6 +74,23 @@ public sealed class RefollowCoordinatorTests
 
             return Task.FromResult(result!);
         }
+    }
+
+    private sealed class BlockingRunner : IRefollowRunner
+    {
+        private readonly TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<RefollowRunResult> completion =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Started => started.Task;
+
+        public async Task<RefollowRunResult> RunAsync(CancellationToken cancellationToken)
+        {
+            started.TrySetResult();
+            return await completion.Task.WaitAsync(cancellationToken);
+        }
+
+        public void Complete(RefollowRunResult result) => completion.TrySetResult(result);
     }
 
     private sealed class FakeRunStateStore : IRefollowRunStateStore
