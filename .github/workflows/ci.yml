@@ -38,7 +38,10 @@ jobs:
           set -euo pipefail
           docker image inspect --format '{{range .Config.Env}}{{println .}}{{end}}' github-refollow:ci > image-env.txt
           grep -Fx 'GITHUB_REFOLLOW_TOKEN=' image-env.txt
-          grep -Fx 'GITHUB_REFOLLOW_API_KEY=' image-env.txt
           grep -Fx 'GITHUB_REFOLLOW_DRY_RUN=true' image-env.txt
           grep -Fx 'GITHUB_REFOLLOW_DELAY_SECONDS=2' image-env.txt
           grep -Fx 'TZ=Asia/Ho_Chi_Minh' image-env.txt
+          if grep -q '^GITHUB_REFOLLOW_API_KEY=' image-env.txt; then
+            echo 'GITHUB_REFOLLOW_API_KEY must not be exposed by the image.' >&2
+            exit 1
+          fi
