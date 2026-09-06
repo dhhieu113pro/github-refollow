@@ -6,6 +6,8 @@ namespace GitHubRefollow.Refollowing;
 
 public interface IRefollowSnapshotStore
 {
+    Task<IReadOnlyList<string>> LoadPendingAsync(CancellationToken cancellationToken);
+
     Task SaveAsync(
         IReadOnlyList<string> following,
         CancellationToken cancellationToken);
@@ -39,7 +41,11 @@ public sealed class RefollowService : IRefollowRunner
         _ = await client.GetAuthenticatedLoginAsync(cancellationToken);
 
         var following = await client.GetFollowingAsync(cancellationToken);
-        var frozen = following.ToArray();
+        var pending = await snapshotStore.LoadPendingAsync(cancellationToken);
+        var frozen = pending
+            .Concat(following)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
         await snapshotStore.SaveAsync(frozen, cancellationToken);
 
