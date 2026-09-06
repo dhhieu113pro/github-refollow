@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 permissions:
@@ -29,3 +31,4 @@ jobs:
           name: build-log
           path: build.log
       - run: dotnet test GitHubRefollow.slnx --configuration Release --no-build
+      - run: docker build --tag github-refollow:ci .
