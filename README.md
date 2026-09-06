@@ -1,17 +1,20 @@
 # GitHub Re-follow
 
-A small .NET 10 service that freezes your current GitHub following list, then unfollows and follows each account again in sequence. It is designed to run unattended in a WSLC/OCI container while keeping a recovery snapshot and last-run state on a persistent volume.
+A small .NET 10 service that freezes your current GitHub **Following** list, then unfollows and follows each account again in sequence. It is designed to run unattended in a WSLC/OCI container while keeping a recovery snapshot and last-run state on a persistent volume.
+
+> **Important:** this service re-follows accounts **you follow** (`?tab=following`). It does not modify the people shown in your **Followers** tab (`?tab=followers`).
 
 ## Behavior
 
 - Scheduled every Monday at **09:00 Asia/Ho_Chi_Minh**.
 - **Dry-run is enabled by default**: the following list is captured, but GitHub is not mutated.
+- Every run verifies the authenticated GitHub account before reading or changing the following list.
 - Live runs are sequential and throttled with a configurable delay.
 - A GitHub API failure stops the current run instead of continuing after rate-limit or anti-abuse responses.
 - Scheduled and manual runs cannot overlap.
 - `/data/following.json` keeps the frozen recovery snapshot.
 - `/data/last-run.json` keeps sanitized last-run status across container restarts.
-- A local dashboard provides status and an API-key-protected **Run now** action.
+- A local dashboard provides status and a **Run now** action.
 
 ## GitHub token
 
@@ -29,7 +32,7 @@ Do **not** use an Actions `GITHUB_TOKEN`; this service operates on the authentic
 
 ## Container / WSLC
 
-Copy the environment template and fill in the two secrets:
+Copy the environment template and set the token:
 
 ```bash
 cp .env.example .env
@@ -39,7 +42,6 @@ At minimum set:
 
 ```dotenv
 GITHUB_REFOLLOW_TOKEN=github_pat_...
-GITHUB_REFOLLOW_API_KEY=a-long-random-secret
 GITHUB_REFOLLOW_DRY_RUN=true
 ```
 
@@ -55,6 +57,8 @@ The dashboard is intentionally bound to the host only:
 http://127.0.0.1:8787
 ```
 
+The manual run endpoint does not require a separate application key. Keep the dashboard bound to localhost unless you place your own authentication/reverse proxy in front of it.
+
 The container uses:
 
 ```text
@@ -66,9 +70,10 @@ and `restart: unless-stopped`, so it resumes automatically with the container ru
 ### Safe first run
 
 1. Leave `GITHUB_REFOLLOW_DRY_RUN=true`.
-2. Open the dashboard and use **Run now** with `GITHUB_REFOLLOW_API_KEY`.
-3. Inspect the user count and `/data/following.json` in the persistent volume.
+2. Open the dashboard and confirm it shows **Dry run** and target **Following**.
+3. Use **Run now** and inspect the detected user count plus `/data/following.json` in the persistent volume.
 4. Only after the dry run looks correct, set `GITHUB_REFOLLOW_DRY_RUN=false` and recreate/restart the container.
+5. Confirm the dashboard now shows **Live** before running manually.
 
 The default delay is two seconds between mutation calls. Increase `GITHUB_REFOLLOW_DELAY_SECONDS` if you want a more conservative pace.
 
@@ -77,7 +82,6 @@ The default delay is two seconds between mutation calls. Increase `GITHUB_REFOLL
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `GITHUB_REFOLLOW_TOKEN` | required for GitHub calls | PAT used for following APIs |
-| `GITHUB_REFOLLOW_API_KEY` | no default | Protects `POST /api/run` |
 | `GITHUB_REFOLLOW_DRY_RUN` | `true` | Disables unfollow/follow mutations when true |
 | `GITHUB_REFOLLOW_DELAY_SECONDS` | `2` | Delay between sequential mutation calls |
 | `TZ` | `Asia/Ho_Chi_Minh` | Time zone used for the Monday 09:00 schedule |
@@ -86,14 +90,13 @@ The default delay is two seconds between mutation calls. Increase `GITHUB_REFOLL
 
 - `GET /` — status dashboard.
 - `GET /api/status` — dry-run mode, delay, next scheduled run, and persisted last-run state.
-- `POST /api/run` — starts one run; requires `X-Api-Key: <GITHUB_REFOLLOW_API_KEY>`.
+- `POST /api/run` — starts one run directly.
 - A concurrent `POST /api/run` returns HTTP `409` while another scheduled/manual run is active.
 
 Example:
 
 ```bash
-curl -X POST http://127.0.0.1:8787/api/run \
-  -H "X-Api-Key: $GITHUB_REFOLLOW_API_KEY"
+curl -X POST http://127.0.0.1:8787/api/run
 ```
 
 ## Local development
@@ -108,4 +111,4 @@ Configuration can also use normal ASP.NET Core keys such as `GitHubRefollow__Dry
 
 ## CI and publishing
 
-Pull requests run restore, Release build, tests, and container validation. Main-branch and `v*` tag pushes publish the OCI image to GHCR as `ghcr.io/dhhieu113pro/github-refollow`.
+Pull requests run restore, Release build, tests, container validation, and verify the OCI image exposes only the supported runtime environment variables. Main-branch and `v*` tag pushes publish the OCI image to `ghcr.io/dhhieu113pro/github-refollow`.
