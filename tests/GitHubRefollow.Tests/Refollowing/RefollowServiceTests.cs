@@ -26,6 +26,42 @@ public sealed class RefollowServiceTests
     }
 
     [Fact]
+    public async Task RunAsync_WhenPendingRecoveryExists_IncludesMissingUserInDryRun()
+    {
+        var dataPath = Path.Combine(
+            Path.GetTempPath(),
+            $"github-refollow-recovery-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dataPath);
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(dataPath, "pending.json"),
+                "[\"rua-den\"]");
+
+            var events = new List<string>();
+            var client = new FakeFollowingClient(["alice"], events);
+            var options = Options.Create(new RefollowOptions
+            {
+                DataPath = dataPath,
+                DryRun = true,
+                DelaySeconds = 0
+            });
+            var store = new JsonRefollowSnapshotStore(options);
+            var service = new RefollowService(client, store, options);
+
+            var result = await service.RunAsync(default);
+
+            Assert.Equal(2, result.FollowingCount);
+            Assert.True(result.DryRun);
+        }
+        finally
+        {
+            Directory.Delete(dataPath, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task RunAsync_WhenEnabled_VerifiesIdentityThenRefollowsFrozenSnapshotInOrder()
     {
         var events = new List<string>();
