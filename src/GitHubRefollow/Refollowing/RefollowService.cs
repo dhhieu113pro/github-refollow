@@ -36,6 +36,8 @@ public sealed class RefollowService : IRefollowRunner
 
     public async Task<RefollowRunResult> RunAsync(CancellationToken cancellationToken)
     {
+        _ = await client.GetAuthenticatedLoginAsync(cancellationToken);
+
         var following = await client.GetFollowingAsync(cancellationToken);
         var frozen = following.ToArray();
 
