@@ -125,6 +125,9 @@ public sealed class RefollowServiceTests
 
     private sealed class FakeSnapshotStore(List<string> events) : IRefollowSnapshotStore
     {
+        public Task<IReadOnlyList<string>> LoadPendingAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
+
         public Task SaveAsync(
             IReadOnlyList<string> following,
             CancellationToken cancellationToken)
