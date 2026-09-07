@@ -19,7 +19,9 @@ public sealed class JsonRefollowSnapshotStoreTests : IDisposable
         var snapshotPath = Path.Combine(dataPath, "following.json");
         Assert.True(File.Exists(snapshotPath));
         var json = await File.ReadAllTextAsync(snapshotPath);
-        Assert.Equal(["alice", "bob"], JsonSerializer.Deserialize<string[]>(json));
+        var users = JsonSerializer.Deserialize<string[]>(json);
+        Assert.NotNull(users);
+        Assert.Equal(["alice", "bob"], users);
     }
 
     [Fact]
