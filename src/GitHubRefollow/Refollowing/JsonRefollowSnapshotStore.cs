@@ -14,52 +14,46 @@ public sealed class JsonRefollowSnapshotStore(IOptions<RefollowOptions> options)
     {
         var pendingPath = Path.Combine(dataPath, "pending.json");
         if (!File.Exists(pendingPath))
-        {
             return [];
-        }
 
         await using var stream = new FileStream(
-            pendingPath,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read,
-            bufferSize: 4096,
-            useAsync: true);
-
+            pendingPath, FileMode.Open, FileAccess.Read,
+            FileShare.Read | FileShare.Delete, bufferSize: 4096, useAsync: true);
         return await JsonSerializer.DeserializeAsync<string[]>(
-            stream,
-            cancellationToken: cancellationToken) ?? [];
+            stream, cancellationToken: cancellationToken) ?? [];
     }
 
     public Task SaveAsync(
-        IReadOnlyList<string> following,
-        CancellationToken cancellationToken) =>
+        IReadOnlyList<string> following, CancellationToken cancellationToken) =>
         WriteAsync("following.json", following, cancellationToken);
 
     public Task SavePendingAsync(
-        IReadOnlyList<string> pending,
-        CancellationToken cancellationToken) =>
+        IReadOnlyList<string> pending, CancellationToken cancellationToken) =>
         WriteAsync("pending.json", pending, cancellationToken);
 
     private async Task WriteAsync(
-        string fileName,
-        IReadOnlyList<string> users,
-        CancellationToken cancellationToken)
+        string fileName, IReadOnlyList<string> users, CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(dataPath);
-
         var path = Path.Combine(dataPath, fileName);
-        await using var stream = new FileStream(
-            path,
-            FileMode.Create,
-            FileAccess.Write,
-            FileShare.None,
-            bufferSize: 4096,
-            useAsync: true);
+        var temporary = Path.Combine(dataPath, $".{fileName}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            await using (var stream = new FileStream(
+                temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                bufferSize: 4096, useAsync: true))
+            {
+                await JsonSerializer.SerializeAsync(stream, users, cancellationToken: cancellationToken);
+                await stream.FlushAsync(cancellationToken);
+            }
 
-        await JsonSerializer.SerializeAsync(
-            stream,
-            users,
-            cancellationToken: cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(temporary, path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporary))
+                File.Delete(temporary);
+        }
     }
 }
