@@ -11,13 +11,14 @@ public sealed record RefollowLastRun(
 public interface IRefollowRunStateStore
 {
     Task<RefollowLastRun?> LoadAsync(CancellationToken cancellationToken);
-
     Task SaveAsync(RefollowLastRun state, CancellationToken cancellationToken);
 }
 
 public interface IRefollowCoordinator
 {
     Task<RefollowRunResult> RunAsync(CancellationToken cancellationToken);
+    Task<RefollowRecoveryStatus> QueueRecoveryAsync(string login, CancellationToken cancellationToken);
+    Task<RefollowRecoveryStatus> GetRecoveryStatusAsync(CancellationToken cancellationToken);
 }
 
 public sealed class RefollowAlreadyRunningException()
@@ -26,9 +27,31 @@ public sealed class RefollowAlreadyRunningException()
 public sealed class RefollowCoordinator(
     IRefollowRunner runner,
     IRefollowRunStateStore stateStore,
-    TimeProvider timeProvider) : IRefollowCoordinator
+    TimeProvider timeProvider,
+    IRefollowRecoveryQueue recoveryQueue) : IRefollowCoordinator
 {
     private readonly SemaphoreSlim runGate = new(1, 1);
+
+    public Task<RefollowRecoveryStatus> GetRecoveryStatusAsync(CancellationToken cancellationToken) =>
+        recoveryQueue.GetStatusAsync(cancellationToken);
+
+    public async Task<RefollowRecoveryStatus> QueueRecoveryAsync(
+        string login, CancellationToken cancellationToken)
+    {
+        if (!await runGate.WaitAsync(TimeSpan.Zero, cancellationToken))
+        {
+            throw new RefollowAlreadyRunningException();
+        }
+
+        try
+        {
+            return await recoveryQueue.QueueAsync(login, cancellationToken);
+        }
+        finally
+        {
+            runGate.Release();
+        }
+    }
 
     public async Task<RefollowRunResult> RunAsync(CancellationToken cancellationToken)
     {
