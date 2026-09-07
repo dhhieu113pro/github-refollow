@@ -88,6 +88,7 @@ public sealed class RefollowServiceTests
             var pendingPath = Path.Combine(dataPath, "pending.json");
             Assert.True(File.Exists(pendingPath));
             var pending = JsonSerializer.Deserialize<string[]>(await File.ReadAllTextAsync(pendingPath));
+            Assert.NotNull(pending);
             Assert.Equal(["rua-den"], pending);
         }
         finally
@@ -121,6 +122,7 @@ public sealed class RefollowServiceTests
 
             var pending = JsonSerializer.Deserialize<string[]>(
                 await File.ReadAllTextAsync(Path.Combine(dataPath, "pending.json")));
+            Assert.NotNull(pending);
             Assert.Equal(["rua-den"], pending);
         }
         finally
