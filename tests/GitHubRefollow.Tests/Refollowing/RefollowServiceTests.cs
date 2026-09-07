@@ -176,6 +176,9 @@ public sealed class RefollowServiceTests
             return Task.FromResult("quinn");
         }
 
+        public Task<string> GetUserLoginAsync(string login, CancellationToken cancellationToken) =>
+            Task.FromResult(login);
+
         public Task<IReadOnlyList<string>> GetFollowingAsync(CancellationToken cancellationToken) =>
             Task.FromResult(following);
 
