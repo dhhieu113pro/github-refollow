@@ -14,13 +14,8 @@ public sealed class ScheduledRefollowWorkerTests
         var delay = new FakeScheduleDelay();
         var coordinator = new FakeCoordinator();
         var worker = new ScheduledRefollowWorker(
-            calculator,
-            delay,
-            coordinator,
-            new FixedTimeProvider(now));
-
+            calculator, delay, coordinator, new FixedTimeProvider(now));
         await worker.RunNextAsync(default);
-
         Assert.Equal(due, delay.Due);
         Assert.Equal(1, coordinator.RunCount);
     }
@@ -33,7 +28,6 @@ public sealed class ScheduledRefollowWorkerTests
     private sealed class FakeScheduleDelay : IScheduleDelay
     {
         public DateTimeOffset? Due { get; private set; }
-
         public Task DelayUntilAsync(DateTimeOffset due, CancellationToken cancellationToken)
         {
             Due = due;
@@ -44,12 +38,15 @@ public sealed class ScheduledRefollowWorkerTests
     private sealed class FakeCoordinator : IRefollowCoordinator
     {
         public int RunCount { get; private set; }
-
         public Task<RefollowRunResult> RunAsync(CancellationToken cancellationToken)
         {
             RunCount++;
             return Task.FromResult(new RefollowRunResult(0, DryRun: true));
         }
+        public Task<RefollowRecoveryStatus> GetRecoveryStatusAsync(CancellationToken ct) =>
+            Task.FromResult(new RefollowRecoveryStatus("quinn", 0, 0, 0, []));
+        public Task<RefollowRecoveryStatus> QueueRecoveryAsync(string login, CancellationToken ct) =>
+            GetRecoveryStatusAsync(ct);
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider

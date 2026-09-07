@@ -6,8 +6,14 @@ namespace GitHubRefollow.Refollowing;
 
 public interface IRefollowSnapshotStore
 {
+    Task<IReadOnlyList<string>> LoadPendingAsync(CancellationToken cancellationToken);
+
     Task SaveAsync(
         IReadOnlyList<string> following,
+        CancellationToken cancellationToken);
+
+    Task SavePendingAsync(
+        IReadOnlyList<string> pending,
         CancellationToken cancellationToken);
 }
 
@@ -39,7 +45,11 @@ public sealed class RefollowService : IRefollowRunner
         _ = await client.GetAuthenticatedLoginAsync(cancellationToken);
 
         var following = await client.GetFollowingAsync(cancellationToken);
-        var frozen = following.ToArray();
+        var pending = await snapshotStore.LoadPendingAsync(cancellationToken);
+        var frozen = pending
+            .Concat(following)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
         await snapshotStore.SaveAsync(frozen, cancellationToken);
 
@@ -48,10 +58,13 @@ public sealed class RefollowService : IRefollowRunner
             return new RefollowRunResult(frozen.Length, DryRun: true);
         }
 
+        await snapshotStore.SavePendingAsync(frozen, cancellationToken);
+
         var delay = TimeSpan.FromSeconds(Math.Max(0, options.DelaySeconds));
 
-        foreach (var login in frozen)
+        for (var index = 0; index < frozen.Length; index++)
         {
+            var login = frozen[index];
             await client.UnfollowAsync(login, cancellationToken);
 
             if (delay > TimeSpan.Zero)
@@ -60,6 +73,9 @@ public sealed class RefollowService : IRefollowRunner
             }
 
             await client.FollowAsync(login, cancellationToken);
+
+            var remaining = frozen[(index + 1)..];
+            await snapshotStore.SavePendingAsync(remaining, CancellationToken.None);
 
             if (delay > TimeSpan.Zero)
             {

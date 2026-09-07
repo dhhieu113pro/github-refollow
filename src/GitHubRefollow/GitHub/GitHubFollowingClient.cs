@@ -9,11 +9,9 @@ namespace GitHubRefollow.GitHub;
 public interface IGitHubFollowingClient
 {
     Task<string> GetAuthenticatedLoginAsync(CancellationToken cancellationToken);
-
+    Task<string> GetUserLoginAsync(string login, CancellationToken cancellationToken);
     Task<IReadOnlyList<string>> GetFollowingAsync(CancellationToken cancellationToken);
-
     Task UnfollowAsync(string login, CancellationToken cancellationToken);
-
     Task FollowAsync(string login, CancellationToken cancellationToken);
 }
 
@@ -32,7 +30,6 @@ public sealed class GitHubApiException(
     : Exception($"GitHub API request failed with status {(int)statusCode} ({statusCode}).")
 {
     public GitHubFailureKind Kind { get; } = kind;
-
     public HttpStatusCode StatusCode { get; } = statusCode;
 }
 
@@ -57,10 +54,24 @@ public sealed class GitHubFollowingClient : IGitHubFollowingClient
     {
         using var response = await httpClient.GetAsync("user", cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
+        return await ReadLoginAsync(response, cancellationToken);
+    }
 
+    public async Task<string> GetUserLoginAsync(string login, CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.GetAsync(
+            $"users/{Uri.EscapeDataString(login)}", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await ReadLoginAsync(response, cancellationToken);
+    }
+
+    private static async Task<string> ReadLoginAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken)
+    {
         var user = await response.Content.ReadFromJsonAsync<GitHubUser>(cancellationToken);
-        return user?.Login
-            ?? throw new InvalidOperationException("GitHub returned an invalid authenticated-user response.");
+        return !string.IsNullOrWhiteSpace(user?.Login)
+            ? user.Login
+            : throw new InvalidOperationException("GitHub returned an invalid user response.");
     }
 
     public async Task<IReadOnlyList<string>> GetFollowingAsync(CancellationToken cancellationToken)
